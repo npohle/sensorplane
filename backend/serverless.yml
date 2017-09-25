@@ -1,0 +1,443 @@
+# Welcome to Serverless!
+#
+# This file is the main config file for your service.
+# It's very minimal at this point and uses default values.
+# You can always add more config options for more control.
+# We've included some commented out config examples here.
+# Just uncomment any of them to get that config option.
+#
+# For full config options, check the docs:
+#    docs.serverless.com
+#
+# Happy Coding!
+
+service: aws-nodejs # NOTE: update this with your service name
+
+# You can pin your service to only deploy with a specific Serverless version
+# Check out our docs for more details
+# frameworkVersion: "=X.X.X"
+
+provider:
+  name: aws
+  runtime: nodejs4.3
+
+# you can overwrite defaults here
+  stage: dev
+  region: us-east-1
+
+# you can add statements to the Lambda function's IAM Role here
+  iamRoleStatements:
+
+    - Effect: "Allow"
+      Action:
+        - "kinesis:*"
+      Resource: "*"
+
+    - Effect: "Allow"
+      Action:
+        - "dynamodb:*"
+      Resource: "*"
+
+#    - Effect: "Allow"
+#      Action:
+#        - "s3:ListBucket"
+#      Resource: { "Fn::Join" : ["", ["arn:aws:s3:::", { "Ref" : "ServerlessDeploymentBucket" } ] ]  }
+#    - Effect: "Allow"
+#      Action:
+#        - "s3:PutObject"
+#      Resource:
+#        Fn::Join:
+#          - ""
+#          - - "arn:aws:s3:::"
+#            - "Ref" : "ServerlessDeploymentBucket"
+#            - "/*"
+
+# you can define service wide environment variables here
+#  environment:
+#    variable1: value1
+
+# you can add packaging information here
+#package:
+#  include:
+#    - include-me.js
+#    - include-me-dir/**
+#  exclude:
+#    - exclude-me.js
+#    - exclude-me-dir/**
+
+functions:
+  iotreceive:
+    handler: ingest.iot
+
+#    The following are a few example events you can configure
+#    NOTE: Please make sure to change your handler code to work with those events
+#    Check the event documentation for details
+    events:
+#      - http:
+#          path: users/create
+#          method: get
+#      - s3: ${env:BUCKET}
+#      - schedule: rate(10 minutes)
+#      - sns: greeter-topic
+#      - stream: arn:aws:dynamodb:region:XXXXXX:table/foo/stream/1970-01-01T00:00:00.000
+#      - alexaSkill
+       - iot:
+          sql: "SELECT * FROM 'measures'"
+#      - cloudwatchEvent:
+#          event:
+#            source:
+#              - "aws.ec2"
+#            detail-type:
+#              - "EC2 Instance State-change Notification"
+#            detail:
+#              state:
+#                - pending
+
+  httpreceive:
+    handler: ingest.http
+    events:
+      - http:
+          path: addmeasure
+          method: get
+
+  httpdump:
+    handler: egress.dump
+    events:
+      - http:
+          path: dump
+          method: get
+          integration: lambda
+          cors: true
+    environment:
+      stage: ${opt:stage, self:provider.stage}
+
+  httpGetThingsJSON:
+    handler: egress.get_thingsJSON
+    events:
+      - http:
+          path: things/json
+          method: get
+          integration: lambda
+          cors: true
+    environment:
+      stage: ${opt:stage, self:provider.stage}
+
+  httpGetThingsAll:
+    handler: egress.get_thingsAll2
+    events:
+      - http:
+          path: things
+          method: get
+          integration: lambda
+          cors: true
+          request:
+            parameters:
+              paths:
+                top: true
+    environment:
+      stage: ${opt:stage, self:provider.stage}
+
+  httpgetthingroot:
+    handler: egress.get_thing2
+    events:
+      - http:
+          path: Things/{id}
+          method: get
+          integration: lambda
+          cors: true
+          request:
+            parameters:
+              paths:
+                id: true
+    environment:
+      stage: ${opt:stage, self:provider.stage}
+
+  httppostthingroot:
+    handler: ingest.post_thing
+    events:
+      - http:
+          path: Things
+          method: post
+          integration: lambda
+          cors: true
+          authorizer:
+            arn: arn:aws:cognito-idp:us-east-1:066558263326:userpool/us-east-1_cGRFlVogg
+            claims:
+              - email
+    environment:
+      stage: ${opt:stage, self:provider.stage}
+
+  httpgetsensorlist:
+    handler: egress.get_sensorlist
+    events:
+      - http:
+          path: Sensors/
+          method: get
+          integration: lambda
+          cors: true
+    environment:
+      stage: ${opt:stage, self:provider.stage}
+
+  httpgetsensorroot:
+    handler: egress.get_sensor
+    events:
+      - http:
+          path: Sensors/{id}
+          method: get
+          integration: lambda
+          cors: true
+          request:
+            parameters:
+              paths:
+                id: true
+    environment:
+      stage: ${opt:stage, self:provider.stage}
+
+  httpgetlocationlist:
+    handler: egress.get_locationlist
+    events:
+      - http:
+          path: Locations/
+          method: get
+          integration: lambda
+          cors: true
+    environment:
+      stage: ${opt:stage, self:provider.stage}
+
+  httpgetlocationroot:
+    handler: egress.get_location
+    events:
+      - http:
+          path: Locations/{id}
+          method: get
+          integration: lambda
+          cors: true
+          request:
+            parameters:
+              paths:
+                id: true
+    environment:
+      stage: ${opt:stage, self:provider.stage}
+
+  httppostlocationroot:
+    handler: ingest.post_location
+    events:
+      - http:
+          path: Locations
+          method: post
+          integration: lambda
+          cors: true
+          authorizer:
+            arn: arn:aws:cognito-idp:us-east-1:066558263326:userpool/us-east-1_cGRFlVogg
+            claims:
+              - email
+    environment:
+      stage: ${opt:stage, self:provider.stage}
+
+  httpgetdatastreamlist:
+    handler: egress.get_datastreamlist
+    events:
+      - http:
+          path: Datastreams/
+          method: get
+          integration: lambda
+          cors: true
+    environment:
+      stage: ${opt:stage, self:provider.stage}
+
+  httpgetdatastreamroot:
+    handler: egress.get_datastream
+    events:
+      - http:
+          path: Datastreams/{id}
+          method: get
+          integration: lambda
+          cors: true
+          request:
+            parameters:
+              paths:
+                id: true
+    environment:
+      stage: ${opt:stage, self:provider.stage}
+
+  httppostdatastreamroot:
+    handler: ingest.post_datastream
+    events:
+      - http:
+          path: Datastreams
+          method: post
+          integration: lambda
+          cors: true
+          authorizer:
+            arn: arn:aws:cognito-idp:us-east-1:066558263326:userpool/us-east-1_cGRFlVogg
+            claims:
+              - email
+    environment:
+      stage: ${opt:stage, self:provider.stage}
+
+  httpgetobservedpropertylist:
+    handler: egress.get_observedpropertylist
+    events:
+      - http:
+          path: ObservedProperties/
+          method: get
+          integration: lambda
+          cors: true
+    environment:
+      stage: ${opt:stage, self:provider.stage}
+
+  httpgetobservedpropertyroot:
+    handler: egress.get_observedproperty
+    events:
+      - http:
+          path: ObservedProperties/{id}
+          method: get
+          integration: lambda
+          cors: true
+          request:
+            parameters:
+              paths:
+                id: true
+    environment:
+      stage: ${opt:stage, self:provider.stage}
+
+  httpgetthinglocations:
+    handler: egress.get_thinglocations
+    events:
+      - http:
+          path: Things/{id}/Locations
+          method: get
+          integration: lambda
+          cors: true
+          request:
+            parameters:
+              paths:
+                id: true
+    environment:
+      stage: ${opt:stage, self:provider.stage}
+
+  httpgetthingdatastreams:
+    handler: egress.get_thingdatastreams
+    events:
+      - http:
+          path: Things/{id}/Datastreams
+          method: get
+          integration: lambda
+          cors: true
+          request:
+            parameters:
+              paths:
+                id: true
+    environment:
+      stage: ${opt:stage, self:provider.stage}
+
+  httpgetthingdatastreamobservations:
+    handler: egress.get_thingdatastreamobservations2
+    events:
+      - http:
+          path: Datastreams/{id}/Observations
+          method: get
+          integration: lambda
+          cors: true
+          request:
+            parameters:
+              paths:
+                id: true
+    environment:
+      stage: ${opt:stage, self:provider.stage}
+
+#  httpgetdatastreams:
+#    handler: egress.get_datastreams
+#    events:
+#      - http:
+#          path: Datastreams/{id}/
+#          method: get
+#          integration: lambda
+#          cors: true
+#          request:
+#            parameters:
+#              paths:
+#                id: true
+#    environment:
+#      stage: ${opt:stage, self:provider.stage}
+
+  httppostthingdatastreamobservations:
+    handler: ingest.post_thingdatastreamobservations
+    events:
+      - http:
+          path: Datastreams/{id}/Observations
+          method: post
+          integration: lambda
+          cors: true
+          request:
+            parameters:
+              paths:
+                id: true
+    environment:
+      stage: ${opt:stage, self:provider.stage}
+
+  httppostthingobservations:
+    handler: ingest.post_thingobservations
+    events:
+      - http:
+          path: Things/{id}/Observations
+          method: post
+          integration: lambda
+          cors: true
+          request:
+            parameters:
+              paths:
+                id: true
+    environment:
+      stage: ${opt:stage, self:provider.stage}
+
+  httpwriteluftdateninfo:
+    handler: ingest.writeluftdateninfo
+    events:
+      - http:
+          path: luftdateninfo/write
+          method: get
+      - http:
+          path: luftdateninfo/write
+          method: post
+
+  httpcsvfromdynamo:
+    handler: egress.csvfromdynamodb
+    events:
+      - http:
+          path: csv
+          method: get
+
+  dynamodump:
+    handler: egress.dynamodb
+    events:
+      - stream:
+          arn: arn:aws:kinesis:us-east-1:066558263326:stream/measures
+          batchSize: 1
+          startingPosition: LATEST
+          enabled: true
+
+  observation2dynamo:
+    handler: egress.observations2dynamodb
+    events:
+      - stream:
+          arn: arn:aws:kinesis:us-east-1:066558263326:stream/observations
+          batchSize: 1
+          startingPosition: LATEST
+          enabled: true
+
+#    Define function environment variables here
+#    environment:
+#      variable2: value2
+
+# you can add CloudFormation resource templates here
+#resources:
+#  Resources:
+#    NewResource:
+#      Type: AWS::S3::Bucket
+#      Properties:
+#        BucketName: my-new-bucket
+#  Outputs:
+#     NewOutput:
+#       Description: "Description for the output"
+#       Value: "Some output value"

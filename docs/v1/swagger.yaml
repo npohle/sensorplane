@@ -1,0 +1,344 @@
+swagger: "2.0"
+info:
+  description: "This is a service inspired by the <a href='http://docs.opengeospatial.org/is/15-078r6/15-078r6.html'>SensorThings API</a>. For the data model check <a href='http://docs.opengeospatial.org/is/15-078r6/15-078r6.html#24'>Spec Ch. 8.2</a>. <br>For now there is virtually no support for complex queries and no support to create or update Sensor Thing Entities except Observations.<br><br>Please note that there are different API endpoints depending on the scheme:<br><ul><li>HTTPS: https://api.open.sensormap.io</li><li>HTTP: http://unsecure-api.open.sensormap.io</li></ul>"
+  version: "1.0.0"
+  title: "Sensor Map"
+  contact:
+    email: "nikolaus.pohle@sensormap.io"
+host: "api.open.sensormap.io"
+basePath: "/v1"
+tags:
+- name: "Things"
+  description: "Everything about your Things"
+- name: "Oberservations"
+  description: "Access to collected observations"
+schemes:
+- "https"
+
+securityDefinitions:
+  ApiKeyAuth:
+    type: apiKey
+    in: header
+    name: Authorization
+
+paths:
+  /Things/:
+    get:
+      tags:
+      - "Things"
+      summary: "List all Things"
+      description: "No support for filters and selectors yet"
+      operationId: "things"
+      produces:
+      - "application/json"
+      responses:
+        200:
+          description: "successful operation"
+          schema:
+            type: "object"
+            properties:
+              "@iot.count":
+                type: "integer"
+              "@iot.nextLink":
+                type: "string"
+              value:
+                type: "array"
+                items:
+                  $ref: "#/definitions/Thing"
+        400:
+          description: "Invalid status value"
+  /Things/{thingId}/:
+    get:
+      tags:
+      - "Things"
+      summary: "Finds a Thing by it's ID"
+      description: "Supports $expand parameters."
+      operationId: "thingById"
+      produces:
+        - "application/json"
+      parameters:
+        - name: "thingId"
+          in: "path"
+          description: "The ID of the Thing"
+          required: true
+          type: "string"
+        - name: "$expand"
+          in: "query"
+          description: "Data structures to expand in the result. Can be Datastreams, Sensor, ObservedProperty or Locations"
+          required: false
+          type: "array"
+          items:
+            type: "string"
+            enum:
+            - Datastreams
+            - Sensor
+            - ObservedProperty
+            - Locations
+          collectionFormat: "csv"
+      responses:
+        200:
+          description: "successful operation"
+          schema:
+            $ref: "#/definitions/Thing"
+        400:
+          description: "Invalid tag value"
+
+  /Locations/{locationId}/:
+    get:
+      tags:
+      - "Locations"
+      summary: "Finds a Location by its ID"
+      description: ""
+      operationId: "locationById"
+      produces:
+        - "application/json"
+      parameters:
+        - name: "locationId"
+          in: "path"
+          description: "The ID of the Location"
+          required: true
+          type: "string"
+      responses:
+        200:
+          description: "successful operation"
+          schema:
+            $ref: "#/definitions/Location"
+        400:
+          description: "Invalid tag value"
+
+  /Locations/:
+    post:
+      tags:
+      - "Locations"
+      summary: "Creates a location"
+      description: ""
+      operationId: "postlocation"
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: "upload"
+          in: "body"
+          required: true
+          description: A JSON map that encodes the location properties
+          schema:
+            $ref: "#/definitions/Location"
+      responses:
+        200:
+          description: "successful operation"
+
+
+  /Datastreams/{datastreamId}/Observations/:
+    get:
+      tags:
+      - "Observations"
+      summary: "Show Observations collected for this Datastream"
+      description: "Defaults to the most recent 96 hours."
+      operationId: "getthingobservations"
+      parameters:
+      - name: "datastreamId"
+        in: "path"
+        required: true
+        type: "string"
+        description: "The ID of the Datastream"
+      - name: "$filter"
+        in: "query"
+        required: false
+        type: "string"
+        description: "limit the time range for which observations are returned. Set the lower bound like this:<br> _$filter=phenomenonTime lt %272017-06-06T20:00:00.000Z%27_"
+      responses:
+        200:
+          description: "successful operation"
+          schema:
+            type: "object"
+            properties:
+              "@iot.count":
+                type: "integer"
+              "@iot.nextLink":
+                type: "string"
+              value:
+                type: "array"
+                items:
+                  $ref: "#/definitions/Observation"
+    post:
+      tags:
+      - "Observations"
+      summary: "Publish observation data for this datastreams"
+      description: ""
+      operationId: "postthingdatastreamobservations"
+      parameters:
+        - name: "datastreamId"
+          in: "path"
+          required: true
+          type: "string"
+          description: "The ID of the Datastream"
+        - name: "upload"
+          in: "body"
+          required: true
+          description: A JSON map that encodes one Observation for this Datastream
+          schema:
+            $ref: "#/definitions/Observation"
+      responses:
+        200:
+          description: "successful operation"
+          
+  /Things/{thingId}/Observations/:
+    post:
+      tags:
+      - "Observations"
+      summary: "Publish observation data for multiple datastreams associated with this Thing."
+      description: "Legacy feature to support data collection compatible with http://luftdaten.info This URL can be used in the esp8266 config screen. Authentication credentials are ignored. Each value is mapped to a matching Datastream of this Thing based on the _Datastream.ObservedProperty.definition_ attribute of the respective Datastreams: <br> <br> SDS_P1 => http://purl.obolibrary.org/obo/ENVO_01000405 <br> SDS_P2 => http://purl.obolibrary.org/obo/ENVO_01000415 <br> temperature => http://purl.obolibrary.org/obo/ENVO_09200001 <br> humidity => http://purl.obolibrary.org/obo/ENVO_01000268"
+      operationId: "postthingobservations"
+      parameters:
+        - name: "thingId"
+          in: "path"
+          required: true
+          type: "string"
+          description: "The ID of the Thing"
+        - name: "body"
+          in: "body"
+          required: true
+          description: A JSON map holding the observation data for multiple sensors.
+          schema:
+            $ref: "#/definitions/luftdateninfo"
+      responses:
+        405:
+          description: "Invalid input"
+
+  /dump/:
+    get:
+      tags:
+      - "Misc"
+      summary: "Show the 100 most recent entries from the ingest queue"
+      description: ""
+      operationId: "dump"
+      produces:
+        - "application/json"
+      responses:
+        200:
+          description: "successful operation"
+
+definitions:
+  Thing:
+    type: "object"
+    properties:
+      name:
+        type: "string"
+      description:
+        type: "string"
+      Datastreams:
+        $ref: "#/definitions/Datastream"
+      Locations:
+        $ref: "#/definitions/Location"
+      HistoricalLocations:
+        type: "array"
+        items:
+          $ref: "#/definitions/Location"
+  Location:
+    type: "object"
+    properties:
+      name:
+        type: "string"
+      description:
+        type: "string"
+      encodingType:
+        type: "string"
+      location:
+        type: "object"
+        properties:
+          "type": 
+            type: "string"
+          coordinates:
+            type: "array"
+  Datastream:
+    type: "object"
+    properties:
+      id:
+        type: "string"
+      name:
+        type: "string"
+      description:
+        type: "string"
+      observationType:
+        type: "string"
+      unitOfMeasurement:
+        type: "object"
+        properties:
+          name:
+            type: "string"
+          symbol:
+            type: "string"
+          definition:
+            type: "string"
+      ObservedProperty:
+        $ref: "#/definitions/ObservedProperty"
+      Sensor:
+        $ref: "#/definitions/Sensor"
+  Sensor:
+    type: "object"
+    properties:
+      name:
+        type: "string"
+      description:
+        type: "string"
+      encodingType:
+        type: "string"
+      metadata:
+        type: "string"
+  ObservedProperty:
+    type: "object"
+    properties:
+      name:
+        type: "string"
+      description:
+        type: "string"
+      definition:
+        type: "string"
+  Observation:
+    type: "object"
+    properties:
+      result:
+        type: "string"
+      resultTime:
+        type: "string"
+      phenomenonTime:
+        type: "string"
+  luftdateninfo:
+    type: "object"
+    properties:
+      esp8266id:
+        type: "string"
+      software_version:
+        type: "string"
+      sensordatavalues:
+        type: "array"
+        items:
+          type: "object"
+          properties:
+            value_type:
+              type: "string"
+            value:
+              type: "string"
+    example:
+      esp8266id: "1497010"
+      software_version: "NRZ-2017-086"
+      sensordatavalues:
+        - value_type: SDS_P1
+          value: '8.07'
+        - value_type: SDS_P2
+          value: '7.37'
+        - value_type: temperature
+          value: '22.00'
+        - value_type: humidity
+          value: '57.70'
+        - value_type: samples
+          value: '715832'
+        - value_type: min_micro
+          value: '199'
+        - value_type: max_micro
+          value: '25504'
+        - value_type: signal
+          value: '-89'
+      
+externalDocs:
+  description: "Find out more about luftdaten.info"
+  url: "http://luftdaten.info"
